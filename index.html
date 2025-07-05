@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Neon Rummikub</title>
+  <style>
+    /* Neon-themed background */
+    body {
+      background: 
+        linear-gradient(135deg, #1a0033 0%, #000 100%),
+        repeating-linear-gradient(45deg, rgba(255, 0, 255, 0.1) 0px, 
+        rgba(255, 0, 255, 0.1) 2px, transparent 2px, transparent 4px);
+      color: white;
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    /* Game container */
+    .game-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Neon text effect */
+    .neon-text {
+      color: #0ff;
+      text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 15px #0ff;
+      animation: pulse 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 15px #0ff; }
+      to { text-shadow: 0 0 8px #0ff, 0 0 15px #0ff, 0 0 25px #0ff; }
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 30px;
+    }
+
+    /* Tile design */
+    .tile {
+      width: 45px;
+      height: 65px;
+      border-radius: 8px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 20px;
+      margin: 5px;
+      cursor: grab;
+      box-shadow: 0 0 10px currentColor;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+      border: 2px solid currentColor;
+      position: relative;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+
+    .tile:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    .tile:active {
+      cursor: grabbing;
+    }
+
+    /* Tile colors */
+    .tile-red   { color: #ff5555; background: rgba(255, 85, 85, 0.1); }
+    .tile-blue  { color: #5555ff; background: rgba(85, 85, 255, 0.1); }
+    .tile-yellow{ color: #ffff55; background: rgba(255, 255, 85, 0.1); }
+    .tile-black { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+    /* Game board/rack */
+    .board, .rack, .computer-rack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-height: 100px;
+      padding: 15px;
+      border: 2px dashed rgba(0, 255, 255, 0.3);
+      border-radius: 10px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .board {
+      min-height: 200px;
+    }
+
+    .board h3, .computer-rack h3 {
+      width: 100%;
+      margin: 0 0 10px 0;
+      color: #0ff;
+      font-size: 1.2em;
+    }
+
+    .rack h3 {
+      color: #0ff;
+      font-size: 1.2em;
+      margin: 0 0 10px 0;
+      width: 100%;
+    }
+
+    /* Computer rack styling */
+    .computer-rack {
+      border-color: rgba(255, 0, 255, 0.3);
+    }
+    
+    .computer-rack h3 {
+      color: #f0f;
+    }
+    
+    .computer-tile {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    /* Tile states */
+    .tile.selected {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 0 5px 15px rgba(0, 255, 255, 0.8) !important;
+      background: rgba(0, 255, 255, 0.2) !important;
+      border-color: #0ff !important;
+    }
+
+    .tile.dragging {
+      opacity: 0.7;
+      transform: scale(1.2) rotate(5deg);
+      z-index: 1000;
+    }
+
+    .tile.invalid {
+      animation: shake 0.5s;
+      border: 2px solid #f55 !important;
+      background: rgba(255, 85, 85, 0.3) !important;
+    }
+
+    .board.drop-active {
+      border-color: #0ff;
+      box-shadow: 0 0 20px #0ff;
+      background: rgba(0, 255, 255, 0.1);
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    /* Neon buttons */
+    .neon-button {
+      background: transparent;
+      color: #0ff;
+      border: 2px solid #0ff;
+      padding: 12px 24px;
+      margin: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #0ff;
+      transition: all 0.3s;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .neon-button:hover {
+      background: rgba(0, 255, 255, 0.2);
+      box-shadow: 0 0 20px #0ff;
+      transform: translateY(-2px);
+    }
+
+    .neon-button:active {
+      transform: translateY(0);
+    }
+
+    .neon-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Game info */
+    .game-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border: 1px solid #0ff;
+    }
+
+    .score, .status {
+      color: #0ff;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    /* Turn indicator */
+    .turn-indicator {
+      text-align: center;
+      margin-bottom: 15px;
+      font-size: 1.2em;
+      color: #0ff;
+      text-shadow: 0 0 5px #0ff;
+      animation: pulse 2s infinite;
+    }
+    
+    .player-turn {
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff;
+    }
+    
+    .computer-turn {
+      color: #f0f;
+      text-shadow: 0 0 10px #f0f;
+    }
+
+    /* High Scores */
+    .high-scores {
+      background-color: rgba(0, 0, 30, 0.5);
+      border: 1px solid #00f0ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .high-scores h3 {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      color: #00f0ff;
+      text-align: center;
+      text-shadow: 0 0 5px #00f0ff;
+    }
+
+    #highScoresList {
+      list-style-type: none;
+      font-size: 0.9rem;
+      padding: 0;
+      margin: 0;
+    }
+
+    #highScoresList li {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.3);
+      color: #fff;
+    }
+
+    #highScoresList li:last-child {
+      border-bottom: none;
+    }
+
+    #highScoresList li:first-child {
+      color: #ffd700;
+      font-weight: bold;
+      text-shadow: 0 0 5px #ffd700;
+    }
+
+    #highScoresList li:nth-child(2) {
+      color: #c0c0c0;
+      font-weight: bold;
+    }
+
+    #highScoresList li:nth-child(3) {
+      color: #cd7f32;
+      font-weight: bold;
+    }
+
+    /* Name input modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a0033 0%, #000 100%);
+      padding: 30px;
+      border-radius: 10px;
+      border: 2px solid #0ff;
+      box-shadow: 0 0 30px #0ff;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .modal h3 {
+      color: #0ff;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 2px solid #0ff;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .modal input:focus {
+      outline: none;
+      box-shadow: 0 0 10px #0ff;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    /* Difficulty selector */
+    .difficulty-selector {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .difficulty-btn {
+      background: transparent;
+      color: #0ff;
+      border: 2px solid #0ff;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .difficulty-btn:hover {
+      background: rgba(0, 255, 255, 0.2);
+    }
+    
+    .difficulty-btn.selected {
+      background: rgba(0, 255, 255, 0.4);
+      box-shadow: 0 0 10px #0ff;
+    }
+
+    /* Textbox */
+    .textbox {
+      width: 95%;
+      min-height: 80px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid #0ff;
+      border-radius: 8px;
+      color: #fff;
+      font-family: monospace;
+      overflow-y: auto;
+      box-shadow: 0 0 10px #0ff;
+      margin-top: 20px;
+      line-height: 1.4;
+    }
+
+    /* Message states */
+    .textbox.success {
+      color: #0f0;
+      text-shadow: 0 0 5px #0f0;
+      border-color: #0f0;
+      box-shadow: 0 0 10px #0f0;
+    }
+
+    .textbox.error {
+      color: #f55;
+      text-shadow: 0 0 5px #f55;
+      border-color: #f55;
+      box-shadow: 0 0 10px #f55;
+    }
+
+    .textbox.warning {
+      color: #ff0;
+      text-shadow: 0 0 5px #ff0;
+      border-color: #ff0;
+      box-shadow: 0 0 10px #ff0;
+    }
+
+    /* Add this to your existing CSS */
+    #pass-btn {
+        background: transparent;
+        color: #ff5555;
+        border: 2px solid #ff5555;
+        box-shadow: 0 0 10px #ff5555;
+    }
+
+    #pass-btn:hover {
+        background: rgba(255, 85, 85, 0.2);
+        box-shadow: 0 0 20px #ff5555;
+    }
+
+    #player-tiles-count {
+      display: inline-block;
+      margin-left: 5px;
+    }
+
+    /* Add to existing styles */
+    .tile[data-number="0"] {
+        animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes joker-glow {
+        0% { box-shadow: 0 0 5px gold; }
+        50% { box-shadow: 0 0 20px gold, 0 0 30px gold; }
+        100% { box-shadow: 0 0 5px gold; }
+    }
+
+    .tile.joker-highlight {
+        animation: joker-glow 1s infinite alternate;
+        border-color: gold !important;
+    }
+
+    /* Animations */
+    @keyframes flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
+    }
+
+    @keyframes glow {
+      0% { box-shadow: 0 0 5px currentColor; }
+      50% { box-shadow: 0 0 20px currentColor; }
+      100% { box-shadow: 0 0 5px currentColor; }
+    }
+    
+    /* Computer move animation */
+    @keyframes computer-move {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    
+    .computer-move {
+      animation: computer-move 0.5s ease-in-out;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) { /* Changed from 600px */
+      .tile {
+        width: 40px;
+        height: 60px;
+        font-size: 16px;
+      }
+      
+      .controls {
+        justify-content: center;
+      }
+      
+      .neon-button {
+        padding: 10px 16px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1><span class="neon-text">Neon</span> Rummikub</h1>
+    
+    <div class="difficulty-selector" id="difficulty-selector">
+      <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+      <button class="difficulty-btn selected" data-difficulty="medium">Medium</button>
+      <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+    </div>
+    
+    <div class="turn-indicator" id="turn-indicator">
+      <span class="player-turn">Your turn</span>
+    </div>
+    
+    <div class="game-info">
+      <div class="score">Your Score: <span id="score">0</span></div>
+      <div class="score">Computer Score: <span id="computer-score">0</span></div>
+      <div class="status">Draw Pile: <span id="draw-pile-left">0</span></div>
+    </div>
+
+    <div class="high-scores">
+      <h3>High Scores</h3>
+      <ul id="highScoresList">
+        <li><span>No scores yet</span><span>-</span></li>
+      </ul>
+    </div>
+
+    <div class="board" id="board">
+      <h3>Game Board</h3>
+    </div>
+    
+    <div class="computer-rack" id="computer-rack">
+      <h3>Computer Tiles: <span id="computer-tiles-count">0</span></h3>
+    </div>
+    
+    <div class="rack" id="rack">
+    <h3>Your Tiles: <span id="player-tiles-count">0</span></h3>
+    </div>
+
+    <div class="controls">
+        <button id="draw-btn" class="neon-button">Draw Tile</button>
+        <button id="play-btn" class="neon-button">Play Selected</button>
+        <button id="cancel-btn" class="neon-button">Clear Selection</button>
+        <button id="undo-btn" class="neon-button" style="display: none;">Undo Move</button>
+        <button id="hint-btn" class="neon-button">Hint</button>
+        <button id="pass-btn" class="neon-button">Pass</button>
+        <button id="new-game-btn" class="neon-button">New Game</button>
+    </div>
+
+    <div class="textbox" id="hint-box">
+      Welcome to Neon Rummikub! Click tiles to select them, then click "Play Selected" to place them on the board. 
+      Form groups (same number, different colors) or runs (consecutive numbers, same color) of 3+ tiles. 
+      Your first move must total 30+ points!
+    </div>
+
+    <div class="modal" id="nameModal">
+      <div class="modal-content">
+        <h3>High Score!</h3>
+        <p>Congratulations! You achieved a high score of <span id="finalScore">0</span> points!</p>
+        <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="15">
+        <div class="modal-buttons">
+          <button class="neon-button" onclick="saveScore()">Save Score</button>
+          <button class="neon-button" onclick="skipSaveScore()">Skip</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+<script>
+    // Game Constants
+    const COLORS = ['red', 'blue', 'yellow', 'black'];
+    const NUMBERS = Array.from({ length: 13 }, (_, i) => i + 1); // 1-13
+    const HINT_MESSAGES = [
+        "First move must total 30+ points! Select more tiles.",
+        "Tip: For first move, combine tiles to reach at least 30 points",
+        "Groups (same number, different colors) or runs (consecutive numbers) work for first move",
+        "Tip: A group needs 3+ tiles of the same number in different colors.",
+        "Tip: A run needs 3+ consecutive numbers in the same color.",
+        "First move must total 30+ points! Select more tiles.",
+        "Can't play? Try drawing a new tile for more options.",
+        "Remember: You can only play valid sets (groups or runs).",
+        "You can add tiles to existing sets on the board.",
+        "Try splitting existing sets to create new combinations."
+    ];
+
+    // Game State
+    let selectedTiles = [];
+    let failedAttempts = 0;
+    let playerScore = 0;
+    let computerScore = 0;
+    let lastValidBoardState = [];
+    let lastValidRackState = [];
+    let lastComputerRackState = [];
+    let isFirstMove = true;
+    let tileCount = 0;
+    let gameActive = true;
+    let playerTurn = true;
+    let highScores = JSON.parse(localStorage.getItem('rummikubHighScores')) || [];
+    let deck = [];
+    let computerTiles = [];
+    let difficulty = 'medium'; // easy, medium, hard
+
+    // DOM Elements
+    const board = document.getElementById('board');
+    const rack = document.getElementById('rack');
+    const computerRack = document.getElementById('computer-rack');
+    const hintBox = document.getElementById('hint-box');
+    const scoreElement = document.getElementById('score');
+    const computerScoreElement = document.getElementById('computer-score');
+    const drawPileLeftElement = document.getElementById('draw-pile-left');
+    const computerTilesCountElement = document.getElementById('computer-tiles-count');
+    const highScoresList = document.getElementById('highScoresList');
+    const nameModal = document.getElementById('nameModal');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const finalScoreElement = document.getElementById('finalScore');
+    const turnIndicator = document.getElementById('turn-indicator');
+    const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+    const playerTilesCountElement = document.getElementById('player-tiles-count');
+
+    // Initialize Game
+    function init() {
+        // Reset game state
+        console.log('Initializing game...');
+        selectedTiles = [];
+        failedAttempts = 0;
+        playerScore = 0;
+        computerScore = 0;
+        lastValidBoardState = [];
+        lastValidRackState = [];
+        lastComputerRackState = [];
+        isFirstMove = true;
+        tileCount = 0;
+        gameActive = true;
+        playerTurn = true;
+        computerTiles = [];
+        
+        // Clear board and racks first
+        board.innerHTML = '<h3>Game Board</h3>';
+        
+        // Initialize racks with count elements (corrected)
+        rack.innerHTML = '<h3>Your Tiles: <span id="player-tiles-count">0/14</span></h3>';
+        computerRack.innerHTML = '<h3>Computer Tiles: <span id="computer-tiles-count">0/14</span></h3>';
+
+        // Initialize deck
+        deck = [];
+        for (let i = 0; i < 2; i++) {
+            COLORS.forEach(color => {
+                NUMBERS.forEach(number => {
+                    deck.push({ color, number });
+                });
+            });
+        }
+        // Add jokers
+        for (let i = 0; i < 2; i++) {
+            deck.push({ color: 'joker', number: 0 });
+        }
+        
+        // Shuffle the deck
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+
+        // Deal initial tiles
+        for (let i = 0; i < 14; i++) {
+            const playerTile = createAndAddTile(true);
+            console.log('Created player tile:', playerTile);
+            const computerTile = createComputerTile();
+            console.log('Created computer tile:', computerTile);
+        }
+
+        updateUI();
+        initBoardDropZone();
+        initButtons();
+        loadHighScores();
+        showHint("Game started! Select tiles to form sets and play them.");
+        updateTurnIndicator();
+        
+        // Set up difficulty buttons
+        difficultyBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                difficultyBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                difficulty = btn.dataset.difficulty;
+            });
+        });
+    }
+
+    function updatePlayerTileCount() {
+        const countElement = document.getElementById('player-tiles-count');
+        if (countElement) {
+            countElement.textContent = `${getRackTiles().length}/14`;
+        }
+    }
+
+    function createAndAddTile(isPlayer = true) {
+        if (deck.length === 0) {
+            showHint("No more tiles in the draw pile! Game will end if no valid moves can be made.", false, 'error');
+            return null;
+        }
+        
+        const tileData = deck.pop();
+        const tile = createTile(tileData.color, tileData.number);
+        tile.dataset.id = `tile-${tileCount++}`;
+        
+        if (isPlayer) {
+            if (getRackTiles().length >= 14) {
+                showHint("Your rack is full! Play some tiles before drawing more.", false, 'error');
+                return null;
+            }
+            rack.appendChild(tile);
+            initTileInteraction(tile);
+        } else {
+            computerRack.appendChild(tile);
+            tile.classList.add('computer-tile');
+        }
+        
+        updateUI(); // This will now update both the tiles and the count
+        return tile;
+    }
+
+    function computerCanDraw() {
+        return deck.length > 0 && computerTiles.length < 14;
+    }
+
+    function createComputerTile() {
+        if (deck.length === 0 || computerTiles.length >= 14) {
+            return null;
+        }
+        
+        const tileData = deck.pop();
+        computerTiles.push(tileData);
+        updateComputerRackDisplay();
+        return tileData;
+    }
+
+    function updateComputerRackDisplay() {
+        computerRack.innerHTML = '<h3>Computer Tiles: <span id="computer-tiles-count">' + 
+            computerTiles.length + '/14</span></h3>';
+            
+        // Show face-down tiles for computer
+        for (let i = 0; i < computerTiles.length; i++) {
+            const tile = document.createElement('div');
+            tile.className = 'tile computer-tile';
+            tile.style.color = '#555';
+            tile.style.boxShadow = '0 0 10px #555';
+            tile.textContent = '?';
+            computerRack.appendChild(tile);
+        }
+    }
+
+    // Create tile element
+    function createTile(color, number) {
+        const tile = document.createElement('div');
+        tile.className = `tile tile-${color}`;
+        tile.textContent = number === 0 ? '★' : number;
+        tile.dataset.color = color;
+        tile.dataset.number = number;
+        tile.setAttribute('aria-label', `${color} ${number}`);
+        
+        // Ensure visibility
+        tile.style.display = 'inline-flex';
+        tile.style.visibility = 'visible';
+        tile.style.opacity = '1';
+        
+        return tile;
+    }
+
+    // Initialize single tile interaction
+    function initTileInteraction(tile) {
+        // Click selection
+        tile.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!gameActive || !playerTurn) return;
+            toggleTileSelection(tile);
+        });
+
+        // Touch support for mobile
+        tile.addEventListener('touchstart', (e) => {
+            if (!gameActive || !playerTurn) return;
+            e.preventDefault();
+            toggleTileSelection(tile);
+        });
+
+        // Drag functionality
+        tile.draggable = true;
+        tile.addEventListener('dragstart', handleDragStart);
+        tile.addEventListener('dragend', handleDragEnd);
+    }
+
+    // Toggle tile selection state
+    function toggleTileSelection(tile) {
+        if (tile.classList.contains('selected')) {
+            tile.classList.remove('selected');
+            selectedTiles = selectedTiles.filter(t => t !== tile);
+        } else {
+            tile.classList.add('selected');
+            selectedTiles.push(tile);
+        }
+        
+        updateUI();
+        
+        if (selectedTiles.length > 0) {
+            showHint(`Selected ${selectedTiles.length} tile(s). Click "Play Selected" to place them on the board.`);
+        } else {
+            showHint("No tiles selected. Click on tiles to select them.");
+        }
+    }
+
+    // Handle drag start
+    function handleDragStart(e) {
+        if (!gameActive || !playerTurn) {
+            e.preventDefault();
+            return;
+        }
+        
+        e.dataTransfer.setData('text/plain', e.target.dataset.id);
+        setTimeout(() => e.target.classList.add('dragging'), 0);
+    }
+
+    // Handle drag end
+    function handleDragEnd() {
+        this.classList.remove('dragging');
+    }
+
+    // Initialize board drop zone
+    function initBoardDropZone() {
+        board.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (gameActive && playerTurn) {
+                board.classList.add('drop-active');
+            }
+        });
+
+        board.addEventListener('dragleave', () => {
+            board.classList.remove('drop-active');
+        });
+
+        board.addEventListener('drop', handleDrop);
+        
+        board.addEventListener('touchenter', (e) => {
+            if (gameActive && playerTurn) {
+                e.preventDefault();
+                board.classList.add('drop-active');
+            }
+        });
+        
+        board.addEventListener('touchleave', () => {
+            board.classList.remove('drop-active');
+        });
+    }
+
+    // Handle tile drop
+    function handleDrop(e) {
+        e.preventDefault();
+        board.classList.remove('drop-active');
+        
+        if (!gameActive || !playerTurn) return;
+        
+        const tileId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : 
+                      document.querySelector('.dragging')?.dataset.id; 
+        const tile = document.querySelector(`[data-id="${tileId}"]`);
+        
+        if (!tile) return;
+
+        if (!selectedTiles.includes(tile)) {
+            tile.classList.add('selected');
+            selectedTiles.push(tile);
+        }
+
+        handlePlay();
+    }
+
+    // Handle invalid move
+    function handleInvalidMove() { 
+        selectedTiles.forEach(tile => { 
+            tile.classList.add('invalid');
+            setTimeout(() => tile.classList.remove('invalid'), 500);
+        });
+        
+        trackFailures();
+    }
+
+
+    // Handle play button
+    function handlePlay() {
+        if (!gameActive || !playerTurn) return;
+        
+        if (selectedTiles.length === 0) {
+            showHint("Please select tiles first!", false, 'warning');
+            return;
+        }
+
+        if (!validateMove(selectedTiles)) {
+            showHint("Invalid set! You need 3+ tiles forming a valid group or run.", false, 'error');
+            handleInvalidMove(); 
+            return;
+        }
+
+        const moveScore = calculatePoints(selectedTiles);
+        
+        // Check first move requirement
+        if (isFirstMove && moveScore < 30) {
+            showHint(`First move needs 30+ points (you have ${moveScore}). Select more tiles or try a different combination.`, true, 'warning');
+            handleInvalidMove(); 
+            return;
+        }
+
+        // Save current state for undo
+        saveGameState();
+
+        // Move tiles to board
+        selectedTiles.forEach(tile => {
+            tile.classList.remove('selected');
+            board.appendChild(tile);
+        });
+
+        // Update game state
+        playerScore += moveScore;
+        selectedTiles = [];
+        failedAttempts = 0;
+        
+        if (isFirstMove) {
+            isFirstMove = false;
+            showHint(`Great! First move complete with ${moveScore} points. Keep playing!`, true, 'success');
+        } else {
+            showHint(`Excellent! +${moveScore} points added. Total: ${playerScore}`, true, 'success');
+        }
+
+        updateUI();
+
+        // Check for draw condition after player's move
+        if (checkStalledGame()) return;
+        
+        // Check for win condition
+        if (getRackTiles().length === 0) {
+            gameActive = false;
+            showHint(`Congratulations! You've won with ${playerScore} points!`, false, 'success', true); 
+            checkHighScore();
+            return;
+        }
+        
+        // Switch to computer's turn
+        playerTurn = false;
+        updateTurnIndicator();
+        setTimeout(computerMove, 1500); // Give player a moment to see their move
+    }
+
+    // Computer AI logic
+    function computerMove() {
+        if (!gameActive) return;
+
+        // Check for draw condition first (moved to the top as per suggestion)
+        if (checkStalledGame()) return;
+
+        // Save current state for undo
+        lastValidBoardState = Array.from(board.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                id: tile.dataset.id,
+                color: tile.dataset.color,
+                number: parseInt(tile.dataset.number)
+            }));
+            
+        lastComputerRackState = [...computerTiles];
+        
+        // Get current board state
+        const boardTiles = Array.from(board.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                color: tile.dataset.color,
+                number: parseInt(tile.dataset.number)
+            }));
+        
+        // Convert computerTiles to same format as boardTiles
+        const computerTilesFormatted = computerTiles.map(tile => ({
+            color: tile.color,
+            number: tile.number
+        }));
+        
+        try {
+            // Find all possible moves with a timeout safeguard
+            const possibleMoves = findComputerMoves(computerTilesFormatted, boardTiles);
+            
+            if (possibleMoves.length > 0) {
+                // Choose a move based on difficulty
+                let chosenMove;
+                if (difficulty === 'easy') {
+                    chosenMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                } else if (difficulty === 'medium') {
+                    possibleMoves.sort((a, b) => b.score - a.score);
+                    chosenMove = possibleMoves[0];
+                } else {
+                    possibleMoves.sort((a, b) => a.tilesToPlay.length - b.tilesToPlay.length);
+                    chosenMove = possibleMoves[0];
+                }
+                
+                // Play the move
+                playComputerMove(chosenMove);
+            } else {
+                // No valid moves - check if we can draw (only if under 14 tiles)
+                if (deck.length > 0 && computerTiles.length < 14) {
+                    const newTile = deck.pop();
+                    computerTiles.push(newTile);
+                    updateComputerRackDisplay();
+                    showHint("Computer couldn't play and drew a tile.", false, 'warning');
+                    
+                    // Check if computer has too many tiles (should never happen now with 14-tile limit)
+                    if (computerTiles.length > 30) {
+                        gameActive = false;
+                        showHint("Computer has too many tiles! You win!", false, 'success', true);
+                        checkHighScore();
+                        return;
+                    }
+                } else {
+                    // Handle cases when computer can't draw (deck empty or rack full)
+                    if (computerTiles.length >= 14) {
+                        showHint("Computer's rack is full and has no valid moves - must pass turn.", false, 'warning');
+                    } else if (deck.length === 0) {
+                        showHint("Computer has no valid moves and no tiles to draw.", false, 'warning');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Computer move error:", error);
+            showHint("Computer encountered an error. Passing turn.", false, 'error');
+        }
+        
+        // Always ensure turn switches back to player
+        setTimeout(() => {
+            playerTurn = true;
+            updateTurnIndicator();
+            showHint("Your turn. Select tiles to play or draw.");
+            updateUI();
+        }, 2000);
+    }
+
+    function endGame(reason = "") {
+        gameActive = false;
+        const playerTilesCount = getRackTiles().length;
+        const computerTilesCount = computerTiles.length;
+        let finalMessage = "";
+
+        if (reason === "draw") {
+            finalMessage = `Game ended in a draw! Both players were unable to make valid moves. Your remaining tiles: ${playerTilesCount}, Computer's remaining tiles: ${computerTilesCount}.`;
+        } else if (computerTilesCount === 0) {
+            finalMessage = "Computer has played all its tiles! You lose.";
+        } else if (playerTilesCount === 0) {
+            finalMessage = `Congratulations! You've won with ${playerScore} points!`;
+        } else if (playerTilesCount === computerTilesCount) {
+            finalMessage = `Game ended in a draw! Both players have ${playerTilesCount} tiles remaining.`;
+        } else if (computerTilesCount > playerTilesCount) {
+            // Player wins if they have fewer tiles than computer at game end (unless computer played all)
+            finalMessage = `You win! You had fewer tiles (${playerTilesCount} vs ${computerTilesCount}).`;
+        } else {
+            // Computer wins if it has fewer tiles than player at game end (unless player played all)
+            finalMessage = `Computer wins! It had fewer tiles (${computerTilesCount} vs ${playerTilesCount}).`;
+        }
+        showHint(finalMessage, false, (playerTilesCount <= computerTilesCount && reason !== "draw" && playerTilesCount !== 0) ? 'success' : 'error', true); // Adjusted message type
+        checkHighScore(); // Always check high score if player wins or draw for potential high score
+    }
+
+    // Add this new function to check for stalled game conditions
+    function checkStalledGame() {
+        const playerCanMove = checkIfAnyValidMoveExists();
+        const computerTilesFormatted = computerTiles.map(tile => ({
+            color: tile.color,
+            number: tile.number
+        }));
+        const boardTiles = Array.from(board.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                color: tile.dataset.color,
+                number: parseInt(tile.dataset.number)
+            }));
+        const computerCanMove = findComputerMoves(computerTilesFormatted, boardTiles).length > 0;
+
+        // Condition 1: Deck empty and neither player can move
+        if (deck.length === 0 && !playerCanMove && !computerCanMove) {
+            endGame("draw");
+            return true;
+        }
+
+        // Condition 2: Both players have full racks (e.g., 14 tiles) AND neither player can move, even if deck isn't empty
+        // This is a common house rule for ending a stalled game. Adjust '13' or '14' based on actual max rack size if different.
+        if (getRackTiles().length >= 14 && computerTiles.length >= 14 && !playerCanMove && !computerCanMove) {
+             endGame("draw");
+             return true;
+        }
+        return false;
+    }
+
+
+    // Initialize buttons
+    function initButtons() {
+        document.getElementById('play-btn').addEventListener('click', handlePlay);
+        document.getElementById('draw-btn').addEventListener('click', handleDraw);
+        document.getElementById('cancel-btn').addEventListener('click', handleCancel);
+        document.getElementById('undo-btn').addEventListener('click', handleUndo);
+        document.getElementById('hint-btn').addEventListener('click', handleHint);
+        document.getElementById('pass-btn').addEventListener('click', handlePass);
+        document.getElementById('new-game-btn').addEventListener('click', init);
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive || !playerTurn) return;
+            
+            switch(e.key) {
+                case 'Escape':
+                    handleCancel();
+                    break;
+                case 'Enter':
+                    handlePlay();
+                    break;
+                case ' ': // Spacebar to draw
+                    e.preventDefault();
+                    handleDraw();
+                    break;
+            }
+        });
+    }
+
+    function findComputerMoves(computerTiles, boardTiles) {
+        const possibleMoves = [];
+        
+        // Separate jokers from regular tiles
+        const jokers = computerTiles.filter(t => t.number === 0);
+        const regularTiles = computerTiles.filter(t => t.number !== 0);
+        
+        // 1. Try to play new sets using jokers
+        if (jokers.length > 0) {
+            // Try to use jokers in groups
+            const numberGroups = {};
+            regularTiles.forEach(tile => {
+                if (!numberGroups[tile.number]) numberGroups[tile.number] = [];
+                numberGroups[tile.number].push(tile);
+            });
+            
+            for (const number in numberGroups) {
+                const tiles = numberGroups[number];
+                const colorSet = new Set(tiles.map(t => t.color));
+                
+                // We need at least 2 unique colors to make a group with 1 joker
+                if (colorSet.size >= 2) {
+                    // Create group with 1 joker
+                    const group = tiles.slice(0, 2); // Take 2 tiles
+                    group.push(jokers[0]); // Add 1 joker
+                    
+                    possibleMoves.push({
+                        type: 'new-group',
+                        tilesToPlay: group,
+                        score: calculateComputerPoints(group),
+                        boardChanges: []
+                    });
+                }
+            }
+            
+            // Try to use jokers in runs
+            const colorGroups = {};
+            regularTiles.forEach(tile => {
+                if (!colorGroups[tile.color]) colorGroups[tile.color] = [];
+                colorGroups[tile.color].push(tile);
+            });
+            
+            for (const color in colorGroups) {
+                const tiles = colorGroups[color];
+                if (tiles.length < 2) continue;
+                
+                tiles.sort((a, b) => a.number - b.number);
+                
+                // Find consecutive pairs that could form a run with a joker
+                for (let i = 0; i < tiles.length - 1; i++) {
+                    if (tiles[i].number + 1 === tiles[i+1].number) {
+                        // Already consecutive - no joker needed
+                        continue;
+                    }
+                    
+                    if (tiles[i].number + 2 === tiles[i+1].number) {
+                        // Gap of 1 - perfect for a joker
+                        const run = [tiles[i], jokers[0], tiles[i+1]];
+                        possibleMoves.push({
+                            type: 'new-run',
+                            tilesToPlay: run,
+                            score: calculateComputerPoints(run),
+                            boardChanges: []
+                        });
+                    }
+                }
+            }
+        }
+        // ... rest of the existing findComputerMoves logic ...
+        
+        // Find all possible runs (consecutive numbers, same color)
+        const colorGroups = {};
+        computerTiles.forEach(tile => {
+            if (tile.number === 0) return; // Skip jokers for now
+            if (!colorGroups[tile.color]) colorGroups[tile.color] = [];
+            colorGroups[tile.color].push(tile);
+        });
+        
+        for (const color in colorGroups) {
+            const tiles = colorGroups[color];
+            if (tiles.length < 3) continue;
+            
+            // Sort by number
+            tiles.sort((a, b) => a.number - b.number);
+            
+            // Find runs of 3+ consecutive numbers
+            for (let i = 0; i < tiles.length - 2; i++) {
+                if (tiles[i].number + 1 === tiles[i+1].number && 
+                    tiles[i].number + 2 === tiles[i+2].number) {
+                    // Found a run of 3
+                    const run = [tiles[i], tiles[i+1], tiles[i+2]];
+                    possibleMoves.push({
+                        type: 'new-run',
+                        tilesToPlay: run,
+                        score: calculateComputerPoints(run),
+                        boardChanges: []
+                    });
+                    
+                    // Check for longer runs
+                    let runLength = 3;
+                    while (i + runLength < tiles.length && 
+                           tiles[i].number + runLength === tiles[i+runLength].number) {
+                        runLength++;
+                        const longerRun = tiles.slice(i, i + runLength);
+                        possibleMoves.push({
+                            type: 'new-run',
+                            tilesToPlay: longerRun,
+                            score: calculateComputerPoints(longerRun),
+                            boardChanges: []
+                        });
+                    }
+                }
+            }
+        }
+        
+        // 2. Try to add to existing sets on the board
+        if (boardTiles.length > 0) {
+            // For each computer tile, see if it can be added to any board set
+            computerTiles.forEach(tile => {
+                if (tile.number === 0) return; // Skip jokers for now
+                
+                // Try to add to groups
+                const sameNumberTiles = boardTiles.filter(t => t.number === tile.number);
+                const sameNumberColors = new Set(sameNumberTiles.map(t => t.color));
+                
+                if (sameNumberTiles.length >= 2 && !sameNumberColors.has(tile.color)) {
+                    possibleMoves.push({
+                        type: 'add-to-group',
+                        tilesToPlay: [tile],
+                        score: tile.number,
+                        boardChanges: []
+                    });
+                }
+                
+                // Try to add to runs
+                const sameColorTiles = boardTiles.filter(t => t.color === tile.color);
+                if (sameColorTiles.length >= 2) {
+                    const runNumbers = sameColorTiles.map(t => t.number);
+                    const min = Math.min(...runNumbers);
+                    const max = Math.max(...runNumbers);
+                    
+                    if (tile.number === min - 1 || tile.number === max + 1) {
+                        possibleMoves.push({
+                            type: 'add-to-run',
+                            tilesToPlay: [tile],
+                            score: tile.number,
+                            boardChanges: []
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Handle jokers (simplified logic)
+        // const jokers = computerTiles.filter(t => t.number === 0);
+        if (jokers.length > 0 && boardTiles.length > 0) {
+            // Very basic joker usage - just add to any existing set
+            jokers.forEach(joker => {
+                possibleMoves.push({
+                    type: 'add-joker',
+                    tilesToPlay: [joker],
+                    score: 0,
+                    boardChanges: []
+                });
+            });
+        }
+        
+        return possibleMoves;
+    }
+
+    function calculateComputerPoints(tiles) {
+        return tiles.reduce((sum, tile) => sum + (tile.number || 0), 0);
+    }
+
+    document.getElementById('hint-btn').addEventListener('click', handleHint);
+
+    // Add this function to the script
+    function handleHint() {
+        if (!gameActive || !playerTurn) {
+            showHint("Game is not active or not your turn.", false, 'error');
+            return;
+        }
+        
+        // Clear any existing selections
+        handleCancel();
+        
+        const playerTiles = getRackTiles();
+        const boardTiles = Array.from(board.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                color: tile.dataset.color,
+                number: parseInt(tile.dataset.number)
+            }));
+        
+        // Find all possible moves, including joker moves
+        const possibleMoves = findPossibleMoves(playerTiles, boardTiles);
+        
+        if (possibleMoves.length > 0) {
+            // Sort moves with joker moves first when they're the best option
+            possibleMoves.sort((a, b) => {
+                // First by score descending
+                if (b.score !== a.score) return b.score - a.score;
+                
+                // Then prefer non-joker moves if scores are equal
+                const aHasJoker = a.tilesToPlay.some(t => t.dataset.number === '0');
+                const bHasJoker = b.tilesToPlay.some(t => t.dataset.number === '0');
+                
+                if (aHasJoker && !bHasJoker) return 1;
+                if (!aHasJoker && bHasJoker) return -1;
+                return 0;
+            });
+            
+            // Try to find a move that meets first move requirement if needed
+            if (isFirstMove) {
+                const validFirstMoves = possibleMoves.filter(move => move.score >= 30);
+                
+                if (validFirstMoves.length > 0) {
+                    // Show the highest scoring valid first move
+                    validFirstMoves.sort((a, b) => b.score - a.score);
+                    highlightMove(validFirstMoves[0]);
+                    showHint(`First move needs 30+ points. Try this combination for ${validFirstMoves[0].score} points!`, false, 'success');
+                    return;
+                } else {
+                    // No valid 30+ point moves found
+                    const bestMove = possibleMoves[0];
+                    if (bestMove) {
+                        highlightMove(bestMove);
+                        showHint(`First move needs 30+ points. Best available is ${bestMove.score}. Try combining more tiles.`, false, 'warning');
+                    } else {
+                        showHint("First move needs 30+ points. No valid combinations found. Try rearranging your tiles.", false, 'error');
+                    }
+                    return;
+                }
+            }
+            
+            // Highlight the best move (will show joker moves if they're best)
+            highlightMove(possibleMoves[0]);
+        } else {
+            // Check if we have jokers that could be played alone
+            const jokers = playerTiles.filter(t => t.dataset.number === '0');
+            if (jokers.length > 0 && boardTiles.length > 0) {
+                // Suggest playing a joker to an existing set
+                const jokerMove = {
+                    type: 'add-joker',
+                    tilesToPlay: [jokers[0]],
+                    score: 30,
+                    boardChanges: []
+                };
+                highlightMove(jokerMove);
+                showHint("You can play your joker ★ by adding it to an existing set on the board.", false, 'success');
+            } else {
+                // No valid moves found - suggest passing
+                showHint("No valid moves found. You'll need to pass your turn by drawing a tile.", false, 'warning');
+            }
+        }
+    }
+
+    function highlightMove(move) {
+        // Highlight these tiles
+        move.tilesToPlay.forEach(tile => {
+            tile.classList.add('selected');
+            selectedTiles.push(tile);
+        });
+        
+        // Special glow for jokers
+        move.tilesToPlay.forEach(tile => {
+            if (tile.dataset.number === '0') {
+                tile.style.animation = 'glow 1s infinite alternate';
+            }
+        });
+        
+        // Show hint about the move
+        if (move.type === 'new-group-joker') {
+            showHint(`Try playing these tiles as a group using the joker ★ as ${move.tilesToPlay[0].dataset.number}. Total: ${move.score} points`, false, 'success');
+        } else if (move.type === 'new-run-joker') {
+            const numbers = move.tilesToPlay
+                .filter(t => t.dataset.number !== '0')
+                .map(t => parseInt(t.dataset.number))
+                .sort((a, b) => a - b);
+            
+            const jokerPosition = numbers[0] + 1;
+            showHint(`Try playing these tiles as a run using the joker ★ as ${jokerPosition}. Total: ${move.score} points`, false, 'success');
+        } else if (move.type.includes('joker')) {
+            showHint(`Try playing these tiles using the joker ★. Total: ${move.score} points`, false, 'success');
+        } 
+        // ... existing hint messages ...
+        
+        updateUI();
+    }
+
+    function checkIfAnyValidMoveExists() {
+        const playerTiles = getRackTiles();
+        const boardTiles = Array.from(board.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                color: tile.dataset.color,
+                number: parseInt(tile.dataset.number)
+            }));
+
+        // Check for new sets
+        for (let i = 3; i <= playerTiles.length; i++) {
+            const combinations = getCombinations(playerTiles, i);
+            for (const combo of combinations) {
+                if (isValidNewSet(combo) && (!isFirstMove || calculatePoints(combo) >= 30)) {
+                    return true;
+                }
+            }
+        }
+
+        // Check for adding to existing sets
+        if (boardTiles.length > 0) {
+            for (const tile of playerTiles) {
+                if (canAddToExistingSets([tile], boardTiles)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function handlePass() {
+        if (!gameActive || !playerTurn) {
+            showHint("Game is not active or not your turn.", false, 'error');
+            return;
+        }
+
+        // Check for immediate game end if stalled
+        if (checkStalledGame()) {
+            return;
+        }
+
+        // Special case: first move with full rack and no valid 30+ move
+        if (isFirstMove && getRackTiles().length >= 14) {
+            const canMakeValidMove = checkIfAnyValidFirstMoveExists();
+            if (!canMakeValidMove) {
+                showHint("No valid opening move available. Passing turn.", false, 'warning');
+                passTurnToComputer();
+                return;
+            }
+        }
+
+        // If no tiles left to draw, just pass turn
+        if (deck.length === 0) {
+            showHint("No tiles left to draw! Passing turn.", false, 'warning');
+            passTurnToComputer();
+            return;
+        }
+
+        // Default behavior: draw a tile and pass turn
+        const newTile = createAndAddTile(true);
+        if (newTile) {
+            showHint("Drew a new tile. Computer's turn now.");
+            if (checkStalledGame()) return; // Check for draw after player draws
+            passTurnToComputer();
+        } else {
+            // If couldn't draw (because rack is full), just pass turn
+            passTurnToComputer();
+        }
+    }
+
+    function checkIfAnyValidFirstMoveExists() {
+        const playerTiles = getRackTiles();
+        // Check all possible 3+ tile combinations
+        for (let i = 3; i <= playerTiles.length; i++) {
+            const combinations = getCombinations(playerTiles, i);
+            for (const combo of combinations) {
+                if (isValidNewSet(combo) && calculatePoints(combo) >= 30) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function getCombinations(tiles, k) {
+        const result = [];
+        
+        function backtrack(start, current) {
+            if (current.length === k) {
+                result.push([...current]);
+                return;
+            }
+            for (let i = start; i < tiles.length; i++) {
+                current.push(tiles[i]);
+                backtrack(i + 1, current);
+                current.pop();
+            }
+        }
+        
+        backtrack(0, []);
+        return result;
+    }
+
+    function forcePassTurn() {
+        showHint("No valid opening move available. Passing turn automatically.", false, 'warning');
+        passTurnToComputer();
+    }
+
+    function passTurnToComputer() {
+        if (!gameActive) return;
+        
+        playerTurn = false;
+        updateTurnIndicator();
+        showHint("Passed turn. Computer is thinking...");
+        updateUI();
+        
+        setTimeout(computerMove, 1000);
+    }
+
+    function findPossibleMoves(playerTiles, boardTiles) {
+        const possibleMoves = [];
+        
+        // Separate jokers from regular tiles
+        const jokers = playerTiles.filter(t => t.dataset.number === '0');
+        const regularTiles = playerTiles.filter(t => t.dataset.number !== '0');
+        
+        // Always allow new sets from player's hand
+        for (let i = 3; i <= playerTiles.length; i++) {
+            const combinations = getCombinations(playerTiles, i);
+            
+            for (const combo of combinations) {
+                if (isValidNewSet(combo)) {
+                    const score = calculatePoints(combo);
+                    
+                    // For first move, only include if >= 30 points
+                    if (!isFirstMove || (isFirstMove && score >= 30)) {
+                        possibleMoves.push({
+                            type: 'new-set',
+                            tilesToPlay: combo,
+                            score: score,
+                            boardChanges: []
+                        });
+                    }
+                }
+            }
+        }
+        
+        // ... rest of existing move-finding logic ...        
+        // 1. Try to play new sets using jokers
+        if (jokers.length > 0) {
+            // Try to use jokers in groups
+            const numberGroups = {};
+            regularTiles.forEach(tile => {
+                const number = tile.dataset.number;
+                if (!numberGroups[number]) numberGroups[number] = [];
+                numberGroups[number].push(tile);
+            });
+            
+            for (const number in numberGroups) {
+                const tiles = numberGroups[number];
+                const colorSet = new Set(tiles.map(t => t.dataset.color));
+                
+                // We need at least 2 unique colors to make a group with 1 joker
+                if (colorSet.size >= 2) {
+                    // Create group with 1 joker
+                    const group = tiles.slice(0, 2); // Take 2 tiles
+                    group.push(jokers[0]); // Add 1 joker
+                    
+                    possibleMoves.push({
+                        type: 'new-group-joker',
+                        tilesToPlay: group,
+                        score: calculatePoints(group),
+                        boardChanges: []
+                    });
+                }
+            }
+            
+            // Try to use jokers in runs
+            const colorGroups = {};
+            regularTiles.forEach(tile => {
+                const color = tile.dataset.color;
+                if (!colorGroups[color]) colorGroups[color] = [];
+                colorGroups[color].push(tile);
+            });
+            
+            for (const color in colorGroups) {
+                const tiles = colorGroups[color];
+                if (tiles.length < 2) continue;
+                
+                // Sort by number
+                tiles.sort((a, b) => parseInt(a.dataset.number) - parseInt(b.dataset.number));
+                
+                // Find consecutive pairs that could form a run with a joker
+                for (let i = 0; i < tiles.length - 1; i++) {
+                    const num1 = parseInt(tiles[i].dataset.number);
+                    const num2 = parseInt(tiles[i+1].dataset.number);
+                    
+                    if (num1 + 1 === num2) {
+                        // Already consecutive - no joker needed
+                        continue;
+                    }
+                    
+                    if (num1 + 2 === num2) {
+                        // Gap of 1 - perfect for a joker
+                        const run = [tiles[i], jokers[0], tiles[i+1]];
+                        possibleMoves.push({
+                            type: 'new-run-joker',
+                            tilesToPlay: run,
+                            score: calculatePoints(run),
+                            boardChanges: []
+                        });
+                    }
+                }
+            }
+        }
+        
+        // ... rest of the existing findPossibleMoves logic ...
+       
+        // Find all possible runs (consecutive numbers, same color)
+        const colorGroups = {};
+        playerTiles.forEach(tile => {
+            const color = tile.dataset.color;
+            if (!colorGroups[color]) colorGroups[color] = [];
+            colorGroups[color].push(tile);
+        });
+        
+        for (const color in colorGroups) {
+            const tiles = colorGroups[color];
+            if (tiles.length < 3) continue;
+            
+            // Sort by number
+            tiles.sort((a, b) => parseInt(a.dataset.number) - parseInt(b.dataset.number));
+            
+            // Find runs of 3+ consecutive numbers
+            for (let i = 0; i < tiles.length - 2; i++) {
+                const num1 = parseInt(tiles[i].dataset.number);
+                const num2 = parseInt(tiles[i+1].dataset.number);
+                const num3 = parseInt(tiles[i+2].dataset.number);
+                
+                if (num1 + 1 === num2 && num1 + 2 === num3) {
+                    // Found a run of 3
+                    const run = [tiles[i], tiles[i+1], tiles[i+2]];
+                    possibleMoves.push({
+                        type: 'new-run',
+                        tilesToPlay: run,
+                        score: calculatePoints(run),
+                        boardChanges: []
+                    });
+                    
+                    // Check for longer runs
+                    let runLength = 3;
+                    while (i + runLength < tiles.length && 
+                           num1 + runLength === parseInt(tiles[i+runLength].dataset.number)) {
+                        runLength++;
+                        const longerRun = tiles.slice(i, i + runLength);
+                        possibleMoves.push({
+                            type: 'new-run',
+                            tilesToPlay: longerRun,
+                            score: calculatePoints(longerRun),
+                            boardChanges: []
+                        });
+                    }
+                }
+            }
+        }
+        
+        // 2. Try to add to existing sets on the board
+        if (boardTiles.length > 0) {
+            // For each player tile, see if it can be added to any board set
+            playerTiles.forEach(tile => {
+                const tileColor = tile.dataset.color;
+                const tileNumber = parseInt(tile.dataset.number);
+                
+                // Try to add to groups
+                const sameNumberTiles = boardTiles.filter(t => t.number === tileNumber);
+                const sameNumberColors = new Set(sameNumberTiles.map(t => t.color));
+                
+                if (sameNumberTiles.length >= 2 && !sameNumberColors.has(tileColor)) {
+                    possibleMoves.push({
+                        type: 'add-to-group',
+                        tilesToPlay: [tile],
+                        score: tileNumber,
+                        boardChanges: []
+                    });
+                }
+                
+                // Try to add to runs
+                const sameColorTiles = boardTiles.filter(t => t.color === tileColor);
+                if (sameColorTiles.length >= 2) {
+                    const runNumbers = sameColorTiles.map(t => t.number);
+                    const min = Math.min(...runNumbers);
+                    const max = Math.max(...runNumbers);
+                    
+                    if (tileNumber === min - 1 || tileNumber === max + 1) {
+                        possibleMoves.push({
+                            type: 'add-to-run',
+                            tilesToPlay: [tile],
+                            score: tileNumber,
+                            boardChanges: []
+                        });
+                    }
+                }
+            });
+        }
+        
+        return possibleMoves;
+    }
+
+    function playComputerMove(move) {
+        // Remove played tiles from computer's rack
+        move.tilesToPlay.forEach(tile => {
+            const index = computerTiles.findIndex(t => 
+                t.color === tile.color && t.number === tile.number);
+            if (index !== -1) {
+                computerTiles.splice(index, 1);
+            }
+        });
+        
+        // Update computer's score
+        computerScore += move.score;
+        computerScoreElement.textContent = computerScore;
+        
+        // Create and place the tiles on the board
+        move.tilesToPlay.forEach(tile => {
+            const tileElement = createTile(tile.color, tile.number);
+            tileElement.dataset.id = `tile-${tileCount++}`;
+            tileElement.classList.add('computer-move');
+            board.appendChild(tileElement);
+            
+            // Remove animation after it completes
+            setTimeout(() => {
+                tileElement.classList.remove('computer-move');
+            }, 500);
+        });
+        
+        // Update display
+        updateComputerRackDisplay();
+        
+        // Special message for joker plays
+        if (move.tilesToPlay.some(t => t.number === 0)) {
+            showHint(`Computer played a joker in a set for ${move.score} points.`, false, 'warning');
+        } else {
+            showHint(`Computer played ${move.tilesToPlay.length} tile(s) for ${move.score} points.`, false, 'warning');
+        }
+        
+        // Check if computer won
+        if (computerTiles.length === 0) {
+            gameActive = false;
+            showHint("Computer has played all its tiles! You lose.", false, 'error', true);
+            return;
+        }
+    }
+
+    // Save current game state for undo
+    function saveGameState() {
+        lastValidBoardState = Array.from(board.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                id: tile.dataset.id,
+                color: tile.dataset.color,
+                number: tile.dataset.number
+            }));
+            
+        lastValidRackState = Array.from(rack.children)
+            .filter(el => el.classList.contains('tile'))
+            .map(tile => ({
+                id: tile.dataset.id,
+                color: tile.dataset.color,
+                number: tile.dataset.number
+            }));
+            
+        document.getElementById('undo-btn').style.display = 'inline-block';
+    }
+
+    // Handle draw button
+    function handleDraw() {
+        if (!gameActive || !playerTurn) {
+            showHint("Game is not active or not your turn.", false, 'error');
+            return;
+        }
+        
+        if (selectedTiles.length > 0) {
+            showHint("Please play or clear your current selection before drawing.", false, 'warning');
+            return;
+        }
+
+        if (deck.length === 0) {
+            showHint("No more tiles in the draw pile!", false, 'error');
+            if (getRackTiles().length > 0) { 
+                gameActive = false;
+                showHint("Game Over! No more tiles to draw and no valid moves found.", false, 'error', true);
+            }
+            return;
+        }
+        
+        const newTile = createAndAddTile(true);
+        if (newTile) {
+            showHint("Drew a new tile. Computer's turn now.");
+            if (checkStalledGame()) return; // Check for draw after player draws a tile
+            // Switch to computer's turn after 2 seconds
+            playerTurn = false;
+            updateTurnIndicator();
+            setTimeout(computerMove, 2000);
+        }
+    }
+
+    // Handle cancel button
+    function handleCancel() {
+        if (!gameActive || !playerTurn) return;
+        
+        // Clear all selections
+        selectedTiles.forEach(tile => {
+            tile.classList.remove('selected');
+        });
+        selectedTiles = [];
+        
+        updateUI();
+        showHint("Selection cleared. Click on tiles to select them.");
+    }
+
+    // Handle undo button
+    function handleUndo() {
+        if (!gameActive || !playerTurn) return;
+        
+        if (lastValidBoardState.length === 0 && lastValidRackState.length === 0) {
+            showHint("No moves to undo.", false, 'warning');
+            return;
+        }
+
+        // Clear current state
+        board.innerHTML = '<h3>Game Board</h3>';
+        rack.innerHTML = '<h3>Your Tiles</h3>';
+        
+        // Restore board state
+        lastValidBoardState.forEach(tileData => {
+            const tile = createTile(tileData.color, tileData.number);
+            tile.dataset.id = tileData.id;
+            board.appendChild(tile);
+            initTileInteraction(tile);
+        });
+        
+        // Restore rack state
+        lastValidRackState.forEach(tileData => {
+            const tile = createTile(tileData.color, tileData.number);
+            tile.dataset.id = tileData.id;
+            rack.appendChild(tile);
+            initTileInteraction(tile);
+        });
+
+        // Clear selections and hide undo button
+        selectedTiles = [];
+        document.getElementById('undo-btn').style.display = 'none';
+        
+        // Reset first move flag if we're undoing the first move
+        if (lastValidBoardState.length === 0) { 
+            isFirstMove = true;
+        }
+        
+        updateUI();
+        showHint("Move undone. Try a different combination!");
+    }
+
+    // Validate moves according to Rummikub rules
+    function validateMove(tiles) {
+        if (tiles.length < 1) return false;
+        
+        // Check if we're adding to existing sets on the board
+        const boardTiles = Array.from(board.children)
+            .filter(el => el.classList.contains('tile') && !selectedTiles.includes(el))
+            .map(tile => ({
+                color: tile.dataset.color,
+                number: parseInt(tile.dataset.number)
+            }));
+        
+        // If no tiles on board, must create a new valid set
+        if (boardTiles.length === 0) {
+            return isValidNewSet(tiles);
+        }
+        
+        // Check if we're adding to existing sets
+        return isValidNewSet(tiles) || canAddToExistingSets(tiles, boardTiles);
+    }
+
+    function isValidNewSet(tiles) {
+        if (tiles.length < 3) return false;
+        return isValidGroup(tiles) || isValidRun(tiles);
+    }
+
+    // Check if tiles form a valid group (same number, different colors)
+    function isValidGroup(tiles) {
+        if (tiles.length < 3 || tiles.length > 4) return false;
+        
+        // Find the target number (skip jokers)
+        let targetNumber = null;
+        for (let tile of tiles) {
+            if (tile.dataset.number !== '0') { // Not a joker
+                if (targetNumber === null) {
+                    targetNumber = tile.dataset.number;
+                } else if (tile.dataset.number !== targetNumber) {
+                    return false;
+                }
+            }
+        }
+        
+        // If all tiles are jokers, invalid
+        if (targetNumber === null) return false;
+        
+        // Check colors (must be unique, ignoring jokers)
+        const colors = new Set();
+        for (let tile of tiles) {
+            if (tile.dataset.color !== 'joker') {
+                if (colors.has(tile.dataset.color)) return false;
+                colors.add(tile.dataset.color);
+            }
+        }
+        
+        return true;
+    }
+
+    // Check if tiles form a valid run (consecutive numbers, same color)
+    function isValidRun(tiles) {
+        if (tiles.length < 3) return false;
+        
+        // Find the target color (skip jokers)
+        let targetColor = null;
+        for (let tile of tiles) {
+            if (tile.dataset.color !== 'joker') {
+                if (targetColor === null) {
+                    targetColor = tile.dataset.color;
+                } else if (tile.dataset.color !== targetColor) {
+                    return false;
+                }
+            }
+        }
+        
+        // If all tiles are jokers, invalid
+        if (targetColor === null) return false;
+        
+        // Get numbers (treat jokers as null)
+        const numbers = tiles.map(tile => 
+            tile.dataset.number === '0' ? null : parseInt(tile.dataset.number)
+        );
+        
+        // Sort the numbers, placing jokers at the end
+        numbers.sort((a, b) => {
+            if (a === null) return 1;
+            if (b === null) return -1;
+            return a - b;
+        });
+        
+        // Count jokers
+        const jokerCount = numbers.filter(n => n === null).length;
+        
+        // Check if the non-joker numbers form a valid run with gaps that can be filled by jokers
+        let lastNumber = numbers[0];
+        let neededJokers = 0;
+        
+        for (let i = 1; i < numbers.length - jokerCount; i++) {
+            if (numbers[i] === lastNumber + 1) {
+                lastNumber = numbers[i];
+            } else {
+                neededJokers += numbers[i] - lastNumber - 1;
+                lastNumber = numbers[i];
+            }
+        }
+        
+        return neededJokers <= jokerCount;
+    }
+
+    // Check if tiles can be added to existing sets
+    function canAddToExistingSets(tiles, boardTiles) {
+        // For each selected tile, check if it can be added to any set on the board
+        for (const tile of tiles) {
+            const tileColor = tile.dataset.color;
+            const tileNumber = parseInt(tile.dataset.number);
+            let canAdd = false;
+            
+            // Jokers can be added to any set
+            if (tileNumber === 0) {
+                canAdd = true;
+                continue;
+            }
+            
+            // Try to add to groups
+            const sameNumberTiles = boardTiles.filter(t => t.number === tileNumber);
+            const sameNumberColors = new Set(sameNumberTiles.map(t => t.color));
+            
+            if (sameNumberTiles.length >= 2 && !sameNumberColors.has(tileColor)) {
+                canAdd = true;
+                continue;
+            }
+            
+            // Try to add to runs
+            const sameColorTiles = boardTiles.filter(t => t.color === tileColor);
+            if (sameColorTiles.length >= 2) {
+                const runNumbers = sameColorTiles.map(t => t.number);
+                const min = Math.min(...runNumbers);
+                const max = Math.max(...runNumbers);
+                
+                if (tileNumber === min - 1 || tileNumber === max + 1) {
+                    canAdd = true;
+                    continue;
+                }
+            }
+            
+            if (!canAdd) return false;
+        }
+        
+        return true;
+    }
+
+    // Calculate points for tiles
+    function calculatePoints(tiles) {
+        return tiles.reduce((sum, tile) => {
+            // Jokers are worth 30 points when played (standard Rummikub rules)
+            return sum + (tile.dataset.number === '0' ? 30 : parseInt(tile.dataset.number));
+        }, 0);
+    }
+
+    // Get tiles currently in rack
+    function getRackTiles() {
+    return Array.from(rack.children).filter(child => child.classList.contains('tile'));
+    }
+
+    // Track failed attempts
+    function trackFailures() {
+        failedAttempts++;
+        if (failedAttempts % 3 === 0) { 
+            const randomHint = HINT_MESSAGES[Math.floor(Math.random() * HINT_MESSAGES.length)];
+            showHint(randomHint, false, 'error');
+        }
+    }
+
+    // Update UI elements
+    function updateUI() {
+
+      scoreElement.textContent = playerScore;
+      computerScoreElement.textContent = computerScore;
+      computerTilesCountElement.textContent = `${computerTiles.length}/14`;
+    
+      // Update player tiles count
+      const playerTiles = getRackTiles();
+      const playerCountElement = document.getElementById('player-tiles-count');
+      if (playerCountElement) {
+          playerCountElement.textContent = `${playerTiles.length}/14`;
+      }
+      
+      drawPileLeftElement.textContent = deck.length;
+      
+      // Update button states
+      const playBtn = document.getElementById('play-btn');
+      const drawBtn = document.getElementById('draw-btn');
+      const cancelBtn = document.getElementById('cancel-btn');
+      const undoBtn = document.getElementById('undo-btn');
+      const passBtn = document.getElementById('pass-btn');
+      const hintBtn = document.getElementById('hint-btn');
+      
+      playBtn.disabled = !gameActive || !playerTurn || selectedTiles.length === 0;
+      drawBtn.disabled = !gameActive || !playerTurn || selectedTiles.length > 0 || getRackTiles().length >= 14 || deck.length === 0;
+      cancelBtn.disabled = !gameActive || !playerTurn || selectedTiles.length === 0;
+      undoBtn.disabled = !gameActive || !playerTurn;
+      
+      // NEW LOGIC: Enable pass button if:
+      // - Game is active and player's turn
+      // AND EITHER:
+      //   - It's the first move and rack is full with no valid 30+ move
+      //   - OR it's not first move and player has no valid moves
+      const hasValidMove = checkIfAnyValidMoveExists();
+      passBtn.disabled = !gameActive || !playerTurn || 
+                        (deck.length > 0 && getRackTiles().length < 14 && hasValidMove);
+      
+      // Enable hint button always during player's turn
+      hintBtn.disabled = !gameActive || !playerTurn;
+    }
+
+    // Update turn indicator
+    function updateTurnIndicator() {
+        const indicator = document.getElementById('turn-indicator');
+        if (playerTurn) {
+            indicator.innerHTML = '<span class="player-turn">Your turn</span>';
+        } else {
+            indicator.innerHTML = '<span class="computer-turn">Computer\'s turn</span>';
+        }
+    }
+
+    // Show hint message
+    function showHint(message, showUndo = false, type = '', isWin = false) { 
+        hintBox.innerHTML = message;
+        hintBox.className = `textbox ${type}`;
+        
+        const undoBtn = document.getElementById('undo-btn');
+        undoBtn.style.display = showUndo ? 'inline-block' : 'none';
+        
+        if (!isWin && type !== 'success' && !message.includes('Welcome') && !message.includes('Game Over')) {
+            setTimeout(() => {
+                if (hintBox.innerHTML === message && gameActive) { 
+                    hintBox.innerHTML = playerTurn 
+                        ? "Select tiles to form sets, or draw a new tile." 
+                        : "Computer is thinking...";
+                    hintBox.className = 'textbox';
+                }
+            }, 4000);
+        }
+    }
+
+    // Load high scores from localStorage
+    function loadHighScores() {
+        highScores = JSON.parse(localStorage.getItem('rummikubHighScores')) || [];
+        updateHighScoresDisplay();
+    }
+
+    // Update high scores display
+    function updateHighScoresDisplay() {
+        highScoresList.innerHTML = '';
+        
+        if (highScores.length === 0) {
+            highScoresList.innerHTML = '<li><span>No scores yet</span><span>-</span></li>';
+            return;
+        }
+        
+        highScores.sort((a, b) => b.score - a.score);
+        
+        highScores.slice(0, 10).forEach((score, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${score.name}</span><span>${score.score}</span>`;
+            
+            if (index === 0) {
+                li.style.color = '#ffd700';
+                li.style.textShadow = '0 0 5px #ffd700';
+            } else if (index === 1) {
+                li.style.color = '#c0c0c0';
+                li.style.textShadow = '0 0 5px #c0c0c0';
+            } else if (index === 2) {
+                li.style.color = '#cd7f32';
+                li.style.textShadow = '0 0 5px #cd7f32';
+            }
+            
+            highScoresList.appendChild(li);
+        });
+    }
+
+    // Check if current score is a high score
+    function checkHighScore() {
+        if (highScores.length < 10 || playerScore > highScores[highScores.length - 1]?.score) {
+            finalScoreElement.textContent = playerScore;
+            nameModal.style.display = 'flex';
+            playerNameInput.focus();
+        }
+    }
+
+    // Save high score
+    function saveScore() {
+        const name = playerNameInput.value.trim() || 'Anonymous';
+        highScores.push({ name, score: playerScore });
+        
+        highScores.sort((a, b) => b.score - a.score);
+        highScores = highScores.slice(0, 10);
+        
+        localStorage.setItem('rummikubHighScores', JSON.stringify(highScores));
+        
+        nameModal.style.display = 'none';
+        playerNameInput.value = '';
+        updateHighScoresDisplay();
+    }
+
+    // Skip saving high score
+    function skipSaveScore() {
+        nameModal.style.display = 'none';
+        playerNameInput.value = '';
+    }
+
+    // Clear selection when clicking outside main game elements
+    document.addEventListener('click', (e) => {
+        if (nameModal.style.display === 'flex') return;
+
+        const isInteractiveOrContainerElement = e.target.closest('.tile') || 
+                                             e.target.closest('.neon-button') ||
+                                             e.target.closest('.board') ||
+                                             e.target.closest('.rack') ||
+                                             e.target.closest('.game-info') || 
+                                             e.target.closest('.high-scores') || 
+                                             e.target.closest('.textbox') ||
+                                             e.target.closest('h1');
+
+        if (gameActive && playerTurn && !isInteractiveOrContainerElement) {
+            handleCancel();
+        }
+    });
+
+    // Start the game
+    init();
+</script>
+</body>
+</html>
