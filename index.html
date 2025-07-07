@@ -563,57 +563,60 @@
         "Try splitting existing sets to create new combinations."
     ];
 
-    // Game State
-    let selectedTiles = [];
-    let failedAttempts = 0;
-    let playerScore = 0;
+    // Game States
     let computerScore = 0;
+    let computerTiles = [];
+    let deck = [];
+    let difficulty = 'medium'; // easy, medium, hard
+    let failedAttempts = 0;
+    let gameActive = true;
+    let highScores = JSON.parse(localStorage.getItem('rummikubHighScores')) || [];
+    let isFirstMove = true;
+    let lastComputerRackState = [];
     let lastValidBoardState = [];
     let lastValidRackState = [];
-    let lastComputerRackState = [];
-    let isFirstMove = true;
-    let tileCount = 0;
-    let gameActive = true;
+    let consecutivePasses = 0; // Add two variables to track consecutive passes 
+    let maxConsecutivePasses = 2;
+    let playerScore = 0;
     let playerTurn = true;
-    let highScores = JSON.parse(localStorage.getItem('rummikubHighScores')) || [];
-    let deck = [];
-    let computerTiles = [];
-    let difficulty = 'medium'; // easy, medium, hard
+    let selectedTiles = [];
+    let tileCount = 0;
 
     // DOM Elements
     const board = document.getElementById('board');
-    const rack = document.getElementById('rack');
     const computerRack = document.getElementById('computer-rack');
-    const hintBox = document.getElementById('hint-box');
-    const scoreElement = document.getElementById('score');
     const computerScoreElement = document.getElementById('computer-score');
-    const drawPileLeftElement = document.getElementById('draw-pile-left');
     const computerTilesCountElement = document.getElementById('computer-tiles-count');
+    const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+    const drawPileLeftElement = document.getElementById('draw-pile-left');
+    const finalScoreElement = document.getElementById('finalScore');
     const highScoresList = document.getElementById('highScoresList');
+    const hintBox = document.getElementById('hint-box');
     const nameModal = document.getElementById('nameModal');
     const playerNameInput = document.getElementById('playerNameInput');
-    const finalScoreElement = document.getElementById('finalScore');
-    const turnIndicator = document.getElementById('turn-indicator');
-    const difficultyBtns = document.querySelectorAll('.difficulty-btn');
     const playerTilesCountElement = document.getElementById('player-tiles-count');
+    const rack = document.getElementById('rack');
+    const scoreElement = document.getElementById('score');
+    const turnIndicator = document.getElementById('turn-indicator');
 
     // Initialize Game
     function init() {
         // Reset game state
         console.log('Initializing game...');
-        selectedTiles = [];
-        failedAttempts = 0;
-        playerScore = 0;
         computerScore = 0;
+        computerTiles = [];
+        failedAttempts = 0;
+        gameActive = true;
+        isFirstMove = true;
+        lastComputerRackState = [];
         lastValidBoardState = [];
         lastValidRackState = [];
-        lastComputerRackState = [];
-        isFirstMove = true;
-        tileCount = 0;
-        gameActive = true;
+        playerScore = 0;
         playerTurn = true;
-        computerTiles = [];
-        
+        selectedTiles = [];
+        tileCount = 0;
+        consecutivePasses = 0;
+
         // Clear board and racks first
         board.innerHTML = '<h3>Game Board</h3>';
         
@@ -926,123 +929,189 @@
         setTimeout(computerMove, 1500); // Give player a moment to see their move
     }
 
-    // Computer AI logic
+    // Enhanced computerMove function with better logging
     function computerMove() {
         if (!gameActive) return;
 
-        // Check for draw condition first (moved to the top as per suggestion)
-        if (checkStalledGame()) return;
+        console.log('Computer move attempt:', {
+            computerTilesCount: computerTiles.length,
+            deckLength: deck.length,
+            consecutivePasses
+        });
 
-        // Save current state for undo
-        lastValidBoardState = Array.from(board.children)
-            .filter(el => el.classList.contains('tile'))
-            .map(tile => ({
-                id: tile.dataset.id,
-                color: tile.dataset.color,
-                number: parseInt(tile.dataset.number)
-            }));
-            
-        lastComputerRackState = [...computerTiles];
-        
-        // Get current board state
-        const boardTiles = Array.from(board.children)
-            .filter(el => el.classList.contains('tile'))
-            .map(tile => ({
-                color: tile.dataset.color,
-                number: parseInt(tile.dataset.number)
-            }));
-        
-        // Convert computerTiles to same format as boardTiles
-        const computerTilesFormatted = computerTiles.map(tile => ({
-            color: tile.color,
-            number: tile.number
-        }));
+        // Check for draw condition first
+        if (checkStalledGame()) return;
         
         try {
-            // Find all possible moves with a timeout safeguard
+            // Find all possible moves
+            const computerTilesFormatted = computerTiles.map(tile => ({
+                color: tile.color,
+                number: tile.number
+            }));
+            const boardTiles = Array.from(board.children)
+                .filter(el => el.classList.contains('tile'))
+                .map(tile => ({
+                    color: tile.dataset.color,
+                    number: parseInt(tile.dataset.number)
+                }));
+            
             const possibleMoves = findComputerMoves(computerTilesFormatted, boardTiles);
             
+            console.log('Computer possible moves:', possibleMoves.length);
+            
             if (possibleMoves.length > 0) {
-                // Choose a move based on difficulty
-                let chosenMove;
-                if (difficulty === 'easy') {
-                    chosenMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-                } else if (difficulty === 'medium') {
-                    possibleMoves.sort((a, b) => b.score - a.score);
-                    chosenMove = possibleMoves[0];
-                } else {
-                    possibleMoves.sort((a, b) => a.tilesToPlay.length - b.tilesToPlay.length);
-                    chosenMove = possibleMoves[0];
-                }
+                // Computer has valid moves - reset pass counter
+                consecutivePasses = 0;
+                console.log('Computer making move, reset consecutivePasses to 0');
                 
-                // Play the move
+                // Choose and play a move based on difficulty
+                const chosenMove = chooseComputerMove(possibleMoves);
                 playComputerMove(chosenMove);
             } else {
-                // No valid moves - check if we can draw (only if under 14 tiles)
+                // No valid moves - try to draw or pass
                 if (deck.length > 0 && computerTiles.length < 14) {
+                    // Computer can draw
                     const newTile = deck.pop();
                     computerTiles.push(newTile);
                     updateComputerRackDisplay();
+                    consecutivePasses = 0; // Reset pass counter when drawing
+                    console.log('Computer drew tile, reset consecutivePasses to 0');
                     showHint("Computer couldn't play and drew a tile.", false, 'warning');
-                    
-                    // Check if computer has too many tiles (should never happen now with 14-tile limit)
-                    if (computerTiles.length > 30) {
-                        gameActive = false;
-                        showHint("Computer has too many tiles! You win!", false, 'success', true);
-                        checkHighScore();
-                        return;
-                    }
                 } else {
-                    // Handle cases when computer can't draw (deck empty or rack full)
+                    // Computer must pass
+                    consecutivePasses++;
+                    console.log('Computer forced to pass, consecutivePasses:', consecutivePasses);
                     if (computerTiles.length >= 14) {
-                        showHint("Computer's rack is full and has no valid moves - must pass turn.", false, 'warning');
+                        showHint("Computer's rack is full and has no valid moves - passing turn.", false, 'warning');
                     } else if (deck.length === 0) {
-                        showHint("Computer has no valid moves and no tiles to draw.", false, 'warning');
+                        showHint("Computer has no valid moves and no tiles to draw - passing turn.", false, 'warning');
                     }
+                    
+                    // Check if game should end after computer passes
+                    if (checkStalledGame()) return;
                 }
             }
         } catch (error) {
             console.error("Computer move error:", error);
             showHint("Computer encountered an error. Passing turn.", false, 'error');
+            consecutivePasses++;
+            console.log('Computer error, consecutivePasses:', consecutivePasses);
+            if (checkStalledGame()) return;
         }
         
-        // Always ensure turn switches back to player
+        // Always ensure turn switches back to player after a delay
         setTimeout(() => {
             playerTurn = true;
             updateTurnIndicator();
             showHint("Your turn. Select tiles to play or draw.");
             updateUI();
         }, 2000);
-    }
+    } 
 
+    // Enhanced endGame function
     function endGame(reason = "") {
         gameActive = false;
         const playerTilesCount = getRackTiles().length;
         const computerTilesCount = computerTiles.length;
+        
+        // Store current score before any potential reset
+        const currentPlayerScore = playerScore;
+        
         let finalMessage = "";
-
-        if (reason === "draw") {
-            finalMessage = `Game ended in a draw! Both players were unable to make valid moves. Your remaining tiles: ${playerTilesCount}, Computer's remaining tiles: ${computerTilesCount}.`;
-        } else if (computerTilesCount === 0) {
-            finalMessage = "Computer has played all its tiles! You lose.";
-        } else if (playerTilesCount === 0) {
-            finalMessage = `Congratulations! You've won with ${playerScore} points!`;
-        } else if (playerTilesCount === computerTilesCount) {
-            finalMessage = `Game ended in a draw! Both players have ${playerTilesCount} tiles remaining.`;
-        } else if (computerTilesCount > playerTilesCount) {
-            // Player wins if they have fewer tiles than computer at game end (unless computer played all)
-            finalMessage = `You win! You had fewer tiles (${playerTilesCount} vs ${computerTilesCount}).`;
-        } else {
-            // Computer wins if it has fewer tiles than player at game end (unless player played all)
-            finalMessage = `Computer wins! It had fewer tiles (${computerTilesCount} vs ${playerTilesCount}).`;
+        let messageType = 'info';
+        
+        switch(reason) {
+            case "draw":
+                finalMessage = `Game ended in a draw! Both players were unable to make valid moves. Your remaining tiles: ${playerTilesCount}, Computer's remaining tiles: ${computerTilesCount}. Your score: ${currentPlayerScore} points.`;
+                messageType = 'warning';
+                break;
+            case "player_win":
+                finalMessage = `Congratulations! You've won by playing all your tiles! Final score: ${currentPlayerScore} points!`;
+                messageType = 'success';
+                break;
+            case "computer_win":
+                finalMessage = `Computer has played all its tiles! You lose. Your final score: ${currentPlayerScore} points.`;
+                messageType = 'error';
+                break;
+            case "abrupt_end":
+                finalMessage = `Game ended abruptly. Your score was: ${currentPlayerScore} points.`;
+                messageType = 'info';
+                break;
+            default:
+                // Determine winner based on remaining tiles
+                if (playerTilesCount === 0) {
+                    finalMessage = `Congratulations! You've won with ${currentPlayerScore} points!`;
+                    messageType = 'success';
+                } else if (computerTilesCount === 0) {
+                    finalMessage = `Computer has played all its tiles! You lose. Your final score: ${currentPlayerScore} points.`;
+                    messageType = 'error';
+                } else if (playerTilesCount === computerTilesCount) {
+                    finalMessage = `Game ended in a draw! Both players have ${playerTilesCount} tiles remaining. Your score: ${currentPlayerScore} points.`;
+                    messageType = 'warning';
+                } else if (playerTilesCount < computerTilesCount) {
+                    finalMessage = `You win! You had fewer tiles (${playerTilesCount} vs ${computerTilesCount}). Your score: ${currentPlayerScore} points.`;
+                    messageType = 'success';
+                } else {
+                    finalMessage = `Computer wins! It had fewer tiles (${computerTilesCount} vs ${playerTilesCount}). Your score: ${currentPlayerScore} points.`;
+                    messageType = 'error';
+                }
         }
-        showHint(finalMessage, false, (playerTilesCount <= computerTilesCount && reason !== "draw" && playerTilesCount !== 0) ? 'success' : 'error', true); // Adjusted message type
-        checkHighScore(); // Always check high score if player wins or draw for potential high score
+        
+        showHint(finalMessage, false, messageType, true);
+        
+        // ALWAYS check high score regardless of win/lose/draw
+        // A player might lose but still have a score worth recording
+        if (currentPlayerScore > 0) {
+            checkHighScore();
+        }
+        
+        // Reset game state AFTER high score check
+        resetGameState();
     }
+
 
     // Add this new function to check for stalled game conditions
     function checkStalledGame() {
+
+        if (consecutivePasses >= 2) {
+          gameActive = false;
+        
+        // Determine winner based on scores
+        if (playerScore > computerScore) {
+            showHint(`Game Over! You win with ${playerScore} points vs ${computerScore} points!`, false, 'success', true);
+        } else if (computerScore > playerScore) {
+            showHint(`Game Over! Computer wins with ${computerScore} points vs ${playerScore} points!`, false, 'error', true);
+        } else {
+            showHint(`Game Over! It's a tie with ${playerScore} points each!`, false, 'info', true);
+        }
+        
+        // Check for high score regardless of win/lose/tie
+        checkHighScore();
+        
+        return true;
+        }
+
+        // Enhanced checkStalledGame function that works with your existing code
+        if (!gameActive) return false;
+        
+        const playerTilesCount = getRackTiles().length;
+        const computerTilesCount = computerTiles.length;
+        
+        // Check if either player has won
+        if (playerTilesCount === 0) {
+            endGame("player_win");
+            return true;
+        }
+        
+        if (computerTilesCount === 0) {
+            endGame("computer_win");
+            return true;
+        }
+
+        // Check player's ability to move using your existing function
         const playerCanMove = checkIfAnyValidMoveExists();
+
+        // Check computer's ability to move
         const computerTilesFormatted = computerTiles.map(tile => ({
             color: tile.color,
             number: tile.number
@@ -1055,18 +1124,48 @@
             }));
         const computerCanMove = findComputerMoves(computerTilesFormatted, boardTiles).length > 0;
 
+        // Debug logging to help diagnose issues
+        console.log('Stall check:', {
+            deckLength: deck.length,
+            playerTilesCount,
+            computerTilesCount,
+            playerCanMove,
+            computerCanMove,
+            consecutivePasses,
+            isFirstMove
+        });
+
         // Condition 1: Deck empty and neither player can move
         if (deck.length === 0 && !playerCanMove && !computerCanMove) {
+            console.log('Game ending: Deck empty and no moves available');
             endGame("draw");
             return true;
         }
-
-        // Condition 2: Both players have full racks (e.g., 14 tiles) AND neither player can move, even if deck isn't empty
-        // This is a common house rule for ending a stalled game. Adjust '13' or '14' based on actual max rack size if different.
-        if (getRackTiles().length >= 14 && computerTiles.length >= 14 && !playerCanMove && !computerCanMove) {
-             endGame("draw");
-             return true;
+        
+        // Condition 2: Both players have max tiles (14) and neither can move
+        if (playerTilesCount >= 14 && computerTilesCount >= 14 && !playerCanMove && !computerCanMove) {
+            console.log('Game ending: Both players have max tiles and no moves');
+            endGame("draw");
+            return true;
         }
+        
+        // Condition 3: Both players passed consecutively
+        if (consecutivePasses >= maxConsecutivePasses) {
+            console.log('Game ending: Both players passed consecutively');
+            endGame("draw");
+            return true;
+        }
+        
+        // Condition 4: Extended stall - both players can't draw and can't move
+        const playerCanDraw = deck.length > 0 && playerTilesCount < 14;
+        const computerCanDraw = deck.length > 0 && computerTilesCount < 14;
+        
+        if (!playerCanMove && !computerCanMove && !playerCanDraw && !computerCanDraw) {
+            console.log('Game ending: Neither player can move or draw');
+            endGame("draw");
+            return true;
+        }
+        
         return false;
     }
 
@@ -1494,11 +1593,15 @@
         return result;
     }
 
+    // Enhanced forcePassTurn function
     function forcePassTurn() {
+        consecutivePasses++;
         showHint("No valid opening move available. Passing turn automatically.", false, 'warning');
+        if (checkStalledGame()) return;
         passTurnToComputer();
     }
 
+    // Enhanced passTurnToComputer function
     function passTurnToComputer() {
         if (!gameActive) return;
         
@@ -1508,6 +1611,30 @@
         updateUI();
         
         setTimeout(computerMove, 1000);
+    }
+
+    // Helper function to choose computer move (you may need to implement this)
+    function chooseComputerMove(possibleMoves) {
+        if (possibleMoves.length === 0) return null;
+        
+        // Simple strategy: choose the move with highest score
+        // You can make this more sophisticated based on difficulty
+        switch(difficulty) {
+            case 'easy':
+                // Choose randomly from valid moves
+                return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+            case 'medium':
+                // Choose move with decent score
+                possibleMoves.sort((a, b) => b.score - a.score);
+                return possibleMoves[Math.floor(possibleMoves.length / 3)];
+            case 'hard':
+                // Choose highest scoring move
+                return possibleMoves.reduce((best, current) => 
+                    current.score > best.score ? current : best
+                );
+            default:
+                return possibleMoves[0];
+        }
     }
 
     function findPossibleMoves(playerTiles, boardTiles) {
@@ -1765,7 +1892,7 @@
         document.getElementById('undo-btn').style.display = 'inline-block';
     }
 
-    // Handle draw button
+    // Enhanced handleDraw function with better logging
     function handleDraw() {
         if (!gameActive || !playerTurn) {
             showHint("Game is not active or not your turn.", false, 'error');
@@ -1777,25 +1904,54 @@
             return;
         }
 
+        console.log('Draw attempt:', {
+            deckLength: deck.length,
+            playerTilesCount: getRackTiles().length,
+            canMove: checkIfAnyValidMoveExists()
+        });
+
         if (deck.length === 0) {
             showHint("No more tiles in the draw pile!", false, 'error');
-            if (getRackTiles().length > 0) { 
-                gameActive = false;
-                showHint("Game Over! No more tiles to draw and no valid moves found.", false, 'error', true);
+            // Player can't draw and can't move - this is a pass
+            if (!checkIfAnyValidMoveExists()) {
+                consecutivePasses++;
+                console.log('Player forced to pass, consecutivePasses:', consecutivePasses);
+                showHint("You have no valid moves and can't draw. Passing turn.", false, 'warning');
+                if (checkStalledGame()) return;
+                passTurnToComputer();
+            }
+            return;
+        }
+        
+        // Check if player's rack is full
+        const currentTileCount = getRackTiles().length;
+        if (currentTileCount >= 14) {
+            showHint("Your rack is full! You can't draw more tiles.", false, 'error');
+            // Player can't draw because rack is full - check if they can move
+            if (!checkIfAnyValidMoveExists()) {
+                consecutivePasses++;
+                console.log('Player rack full and no moves, consecutivePasses:', consecutivePasses);
+                showHint("Your rack is full and you have no valid moves. Passing turn.", false, 'warning');
+                if (checkStalledGame()) return;
+                passTurnToComputer();
             }
             return;
         }
         
         const newTile = createAndAddTile(true);
         if (newTile) {
+            consecutivePasses = 0; // Reset pass counter when a tile is drawn
+            console.log('Player drew tile, reset consecutivePasses to 0');
             showHint("Drew a new tile. Computer's turn now.");
-            if (checkStalledGame()) return; // Check for draw after player draws a tile
+            if (checkStalledGame()) return;
+            
             // Switch to computer's turn after 2 seconds
             playerTurn = false;
             updateTurnIndicator();
             setTimeout(computerMove, 2000);
         }
     }
+
 
     // Handle cancel button
     function handleCancel() {
@@ -1879,7 +2035,67 @@
         return isValidGroup(tiles) || isValidRun(tiles);
     }
 
-    // Check if tiles form a valid group (same number, different colors)
+
+    // Check if tiles form a valid run (consecutive numbers, same color)
+    // Fixed isValidRun function - replaces the existing one
+    function isValidRun(tiles) {
+        if (tiles.length < 3) return false;
+        
+        // Find the target color (skip jokers)
+        let targetColor = null;
+        for (let tile of tiles) {
+            if (tile.dataset.color !== 'joker') {
+                if (targetColor === null) {
+                    targetColor = tile.dataset.color;
+                } else if (tile.dataset.color !== targetColor) {
+                    return false; // Mixed colors in run
+                }
+            }
+        }
+        
+        // If all tiles are jokers, invalid
+        if (targetColor === null) return false;
+        
+        // Separate jokers from regular tiles
+        const jokers = tiles.filter(tile => tile.dataset.number === '0');
+        const regularTiles = tiles.filter(tile => tile.dataset.number !== '0');
+        
+        // Get numbers from regular tiles and sort them
+        const numbers = regularTiles.map(tile => parseInt(tile.dataset.number)).sort((a, b) => a - b);
+        
+        // Check for duplicates in regular tiles (invalid for runs)
+        for (let i = 0; i < numbers.length - 1; i++) {
+            if (numbers[i] === numbers[i + 1]) {
+                return false; // Duplicate numbers not allowed in runs
+            }
+        }
+        
+        // If no regular tiles, invalid
+        if (numbers.length === 0) return false;
+        
+        // Calculate the span needed for consecutive numbers
+        const minNumber = numbers[0];
+        const maxNumber = numbers[numbers.length - 1];
+        const requiredSpan = maxNumber - minNumber + 1;
+        
+        // Check if we have enough tiles to fill the span
+        if (requiredSpan !== tiles.length) {
+            return false;
+        }
+        
+        // Check if jokers can fill the gaps
+        const gaps = [];
+        for (let i = minNumber; i <= maxNumber; i++) {
+            if (!numbers.includes(i)) {
+                gaps.push(i);
+            }
+        }
+        
+        // We need exactly as many jokers as gaps
+        return gaps.length === jokers.length;
+    }
+
+    // Also add this helper function to validate groups more strictly
     function isValidGroup(tiles) {
         if (tiles.length < 3 || tiles.length > 4) return false;
         
@@ -1890,7 +2106,7 @@
                 if (targetNumber === null) {
                     targetNumber = tile.dataset.number;
                 } else if (tile.dataset.number !== targetNumber) {
-                    return false;
+                    return false; // Mixed numbers in group
                 }
             }
         }
@@ -1902,62 +2118,16 @@
         const colors = new Set();
         for (let tile of tiles) {
             if (tile.dataset.color !== 'joker') {
-                if (colors.has(tile.dataset.color)) return false;
+                if (colors.has(tile.dataset.color)) {
+                    return false; // Duplicate colors not allowed
+                }
                 colors.add(tile.dataset.color);
             }
         }
         
-        return true;
-    }
-
-    // Check if tiles form a valid run (consecutive numbers, same color)
-    function isValidRun(tiles) {
-        if (tiles.length < 3) return false;
-        
-        // Find the target color (skip jokers)
-        let targetColor = null;
-        for (let tile of tiles) {
-            if (tile.dataset.color !== 'joker') {
-                if (targetColor === null) {
-                    targetColor = tile.dataset.color;
-                } else if (tile.dataset.color !== targetColor) {
-                    return false;
-                }
-            }
-        }
-        
-        // If all tiles are jokers, invalid
-        if (targetColor === null) return false;
-        
-        // Get numbers (treat jokers as null)
-        const numbers = tiles.map(tile => 
-            tile.dataset.number === '0' ? null : parseInt(tile.dataset.number)
-        );
-        
-        // Sort the numbers, placing jokers at the end
-        numbers.sort((a, b) => {
-            if (a === null) return 1;
-            if (b === null) return -1;
-            return a - b;
-        });
-        
-        // Count jokers
-        const jokerCount = numbers.filter(n => n === null).length;
-        
-        // Check if the non-joker numbers form a valid run with gaps that can be filled by jokers
-        let lastNumber = numbers[0];
-        let neededJokers = 0;
-        
-        for (let i = 1; i < numbers.length - jokerCount; i++) {
-            if (numbers[i] === lastNumber + 1) {
-                lastNumber = numbers[i];
-            } else {
-                neededJokers += numbers[i] - lastNumber - 1;
-                lastNumber = numbers[i];
-            }
-        }
-        
-        return neededJokers <= jokerCount;
+        // Must have at least 3 different colors (including jokers representing missing colors)
+        const totalUniqueColors = colors.size + tiles.filter(tile => tile.dataset.color === 'joker').length;
+        return totalUniqueColors >= 3 && totalUniqueColors <= 4;
     }
 
     // Check if tiles can be added to existing sets
@@ -2096,9 +2266,17 @@
         }
     }
 
-    // Load high scores from localStorage
+    // Load high scores from localStorage. Ensure scores are numbers when loading from localStorage
     function loadHighScores() {
-        highScores = JSON.parse(localStorage.getItem('rummikubHighScores')) || [];
+        const savedScores = localStorage.getItem('rummikubHighScores');
+        if (savedScores) {
+            highScores = JSON.parse(savedScores).map(score => ({
+                name: score.name,
+                score: Number(score.score) || 0  // Ensure score is a number
+            }));
+        } else {
+            highScores = [];
+        }
         updateHighScoresDisplay();
     }
 
@@ -2133,19 +2311,28 @@
     }
 
     // Check if current score is a high score
+    // A simpler and more reliable approach:
     function checkHighScore() {
-        if (highScores.length < 10 || playerScore > highScores[highScores.length - 1]?.score) {
+        // Sort high scores to ensure proper order
+        highScores.sort((a, b) => b.score - a.score);
+        
+        // Always allow if less than 10 scores, or if score beats the 10th place score
+        const lowestHighScore = highScores.length >= 10 ? highScores[9].score : -1;
+        
+        if (highScores.length < 10 || Number(playerScore) > lowestHighScore) {
             finalScoreElement.textContent = playerScore;
             nameModal.style.display = 'flex';
             playerNameInput.focus();
         }
     }
 
-    // Save high score
+    // Save high score. Ensure playerScore is always a number when saving
+    // Reset playerScore only after high score modal is handled
     function saveScore() {
         const name = playerNameInput.value.trim() || 'Anonymous';
-        highScores.push({ name, score: playerScore });
+        const score = Number(playerScore) || 0;
         
+        highScores.push({ name, score });
         highScores.sort((a, b) => b.score - a.score);
         highScores = highScores.slice(0, 10);
         
@@ -2153,6 +2340,11 @@
         
         nameModal.style.display = 'none';
         playerNameInput.value = '';
+        
+        // NOW reset the player score and update display
+        playerScore = 0;
+        scoreElement.textContent = playerScore;
+        
         updateHighScoresDisplay();
     }
 
@@ -2160,6 +2352,10 @@
     function skipSaveScore() {
         nameModal.style.display = 'none';
         playerNameInput.value = '';
+        
+        // Reset the player score here too
+        playerScore = 0;
+        scoreElement.textContent = playerScore;
     }
 
     // Clear selection when clicking outside main game elements
@@ -2179,6 +2375,26 @@
             handleCancel();
         }
     });
+
+    // New function to reset game state
+    function resetGameState() {
+        consecutivePasses = 0;
+        selectedTiles = [];
+        failedAttempts = 0;
+        computerScore = 0;
+        lastValidBoardState = [];
+        lastValidRackState = [];
+        lastComputerRackState = [];
+        isFirstMove = true;
+        tileCount = 0;
+        gameActive = true;
+        playerTurn = true;
+        computerTiles = [];
+        
+        // Update computer score display
+        computerScoreElement.textContent = computerScore;
+        loadHighScores();
+    }
 
     // Start the game
     init();
