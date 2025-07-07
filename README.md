@@ -113,3 +113,9 @@ The design prioritizes a **single-page application** approach, where all game in
 
 Neon Rummikub is a well-structured and engaging web-based game that successfully captures the essence of the classic Rummikub experience. Its client-side architecture, combined with thoughtful game logic and a visually appealing design, provides a solid foundation. The recent enhancements, particularly the robust draw condition detection, significantly improve game fairness and completeness. While functional and enjoyable, there's ample room for further development in AI sophistication and advanced Rummikub mechanics to elevate the gameplay experience.
 
+# **Modifications:**
+
+### ** Three improvements have been made on 7th July 2025:
+1. *Duplicate Tile Detection*: Rejects sequences with duplicate numbers (5, 6, 6). Enhanced joker logic ensures they accurately fill gaps and manage mixed colours and all-joker scenarios for better tile counting and sequence validation.
+2. *Improve Draw Detection*: Tracks consecutive passes, allowing a maximum of two. Ensures the game correctly identifies draw conditions when players are unable to make valid moves.
+3. *High-Score Detection*: The game updates the high-score board if it ends suddenly in a draw or if the player starts a new game.
